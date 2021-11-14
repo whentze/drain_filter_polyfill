@@ -2,8 +2,9 @@
 name = "drain_filter_polyfill"
 version = "0.1.0"
 edition = "2021"
-license = "CC0-1.0"
-description = "for namibj"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/whentze/drain_filter_polyfill.git"
+description = "current nightly implementation of Vec::drain_filter, copypasted out"
 
 [dependencies]
 
