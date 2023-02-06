@@ -1,3 +1,7 @@
+#![no_std]
+
+extern crate alloc;
+
 mod copypasted_impl;
 pub use copypasted_impl::DrainFilter;
 

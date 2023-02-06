@@ -1,7 +1,7 @@
 use core::ptr::{self};
 use core::slice::{self};
-use std::mem::{ManuallyDrop, self};
-use std::vec::Vec;
+use core::mem::{ManuallyDrop, self};
+use alloc::vec::Vec;
 
 impl<T> crate::VecExt<T> for Vec<T> {
     fn drain_filter<F>(&mut self, filter: F) -> DrainFilter<'_, T, F>
