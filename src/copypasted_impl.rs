@@ -1,5 +1,6 @@
 use core::ptr::{self};
 use core::slice::{self};
+use std::mem::{ManuallyDrop, self};
 use std::vec::Vec;
 
 impl<T> crate::VecExt<T> for Vec<T> {
@@ -58,6 +59,66 @@ where
     /// backshifted in the `vec`, but no further items will be dropped or
     /// tested by the filter predicate.
     pub(super) panic_flag: bool,
+}
+
+
+impl<T, F> DrainFilter<'_, T, F>
+where
+    F: FnMut(&mut T) -> bool,
+{
+
+    /// Keep unyielded elements in the source `Vec`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use drain_filter_polyfill::VecExt;
+    ///
+    /// let mut vec = vec!['a', 'b', 'c'];
+    /// let mut drain = vec.drain_filter(|_| true);
+    ///
+    /// assert_eq!(drain.next().unwrap(), 'a');
+    ///
+    /// // This call keeps 'b' and 'c' in the vec.
+    /// drain.keep_rest();
+    ///
+    /// // If we wouldn't call `keep_rest()`,
+    /// // `vec` would be empty.
+    /// assert_eq!(vec, ['b', 'c']);
+    /// ```
+    pub fn keep_rest(self) {
+        // At this moment layout looks like this:
+        //
+        //  _____________________/-- old_len
+        // /                     \
+        // [kept] [yielded] [tail]
+        //        \_______/ ^-- idx
+        //                \-- del
+        //
+        // Normally `Drop` impl would drop [tail] (via .for_each(drop), ie still calling `pred`)
+        //
+        // 1. Move [tail] after [kept]
+        // 2. Update length of the original vec to `old_len - del`
+        //    a. In case of ZST, this is the only thing we want to do
+        // 3. Do *not* drop self, as everything is put in a consistent state already, there is nothing to do
+        let mut this = ManuallyDrop::new(self);
+
+        unsafe {
+            // ZSTs have no identity, so we don't need to move them around.
+            let needs_move = mem::size_of::<T>() != 0;
+
+            if needs_move && this.idx < this.old_len && this.del > 0 {
+                let ptr = this.vec.as_mut_ptr();
+                let src = ptr.add(this.idx);
+                let dst = src.sub(this.del);
+                let tail_len = this.old_len - this.idx;
+                src.copy_to(dst, tail_len);
+            }
+
+            let new_len = this.old_len - this.del;
+            this.vec.set_len(new_len);
+        }
+    }
 }
 
 impl<T, F> Iterator for DrainFilter<'_, T, F>
